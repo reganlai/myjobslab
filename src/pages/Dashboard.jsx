@@ -1,8 +1,9 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useMemo } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { supabase } from '../lib/supabaseClient'
-import JobCard from '../components/JobCard'
+import JobTable from '../components/JobTable'
 import AddJobModal from '../components/AddJobModal'
+import ConfirmationModal from '../components/ConfirmationModal'
 import ExtensionBanner from '../components/ExtensionBanner'
 import logo from '../../icon.svg'
 
@@ -14,7 +15,10 @@ export default function Dashboard() {
   const [jobs, setJobs] = useState([])
   const [loading, setLoading] = useState(true)
   const [filter, setFilter] = useState(ALL)
-  const [showModal, setShowModal] = useState(false)
+  const [search, setSearch] = useState('')
+  const [appliedSearch, setAppliedSearch] = useState('')
+  const [showAddModal, setShowAddModal] = useState(false)
+  const [showClearModal, setShowClearModal] = useState(false)
   const navigate = useNavigate()
 
   useEffect(() => {
@@ -50,52 +54,82 @@ export default function Dashboard() {
   }
 
   const handleClearAll = async () => {
-    const confirmed = window.confirm('Delete all your job applications? This cannot be undone.')
-    if (!confirmed) return
     const { error } = await supabase.from('jobs').delete().eq('user_id', session.user.id)
     if (!error) setJobs([])
+    setShowClearModal(false)
   }
 
   const handleAdded = (newJob) => {
     setJobs(prev => [newJob, ...prev])
   }
 
-  const handleStatusChange = (id, newStatus) => {
+  const handleStatusChange = async (id, newStatus) => {
+    // Optimistic update
     setJobs(prev => prev.map(j => j.id === id ? { ...j, status: newStatus } : j))
+    
+    const { error } = await supabase
+      .from('jobs')
+      .update({ status: newStatus })
+      .eq('id', id)
+    
+    if (error) {
+      // Revert on error
+      fetchJobs()
+    }
   }
 
-  const handleDelete = (id) => {
-    setJobs(prev => prev.filter(j => j.id !== id))
+  const handleDelete = async (id) => {
+    const { error } = await supabase.from('jobs').delete().eq('id', id)
+    if (!error) {
+      setJobs(prev => prev.filter(j => j.id !== id))
+    }
   }
 
-  const filteredJobs = filter === ALL ? jobs : jobs.filter(j => j.status === filter)
+  const filteredJobs = useMemo(() => {
+    return jobs.filter(j => {
+      const matchesFilter = filter === ALL || j.status === filter
+      const matchesSearch = j.title.toLowerCase().includes(appliedSearch.toLowerCase()) || 
+                            j.company.toLowerCase().includes(appliedSearch.toLowerCase())
+      return matchesFilter && matchesSearch
+    })
+  }, [jobs, filter, appliedSearch])
+
+  // Stats for the filter tabs
+  const statusCounts = useMemo(() => {
+    const counts = { [ALL]: jobs.length }
+    STATUSES.slice(1).forEach(s => {
+      counts[s] = jobs.filter(j => j.status === s).length
+    })
+    return counts
+  }, [jobs])
+
+  // Stats for the "Shopify" cards (if they were still used, but left for context or other needs)
+  const stats = {
+    total: jobs.length,
+    active: jobs.filter(j => ['Applied', 'Interviewing'].includes(j.status)).length,
+    rejected: jobs.filter(j => j.status === 'Rejected').length,
+    ghosted: jobs.filter(j => j.status === 'Ghosted').length,
+  }
 
   return (
-    <div className="min-h-screen bg-white text-gray-900">
+    <div className="min-h-screen bg-gray-50/50 text-gray-900 font-sans relative">
+      {/* Background Fix Layer */}
+      <div className="fixed inset-0 bg-white -z-10" aria-hidden="true" />
 
       {/* Header */}
-      <header className="bg-white border-b border-gray-200 sticky top-0 z-10 shadow-sm">
-        <div className="max-w-4xl mx-auto px-4 h-14 flex items-center justify-between">
-          <div className="flex items-center gap-2.5">
-            <img src={logo} alt="MyJobsLab" className="w-8 h-8" />
-            <span className="font-bold text-base tracking-tight text-gray-900">MyJobsLab</span>
-          </div>
+      <header className="bg-white border-b border-gray-200 sticky top-0 z-40">
+        <div className="max-w-6xl mx-auto px-6 h-14 flex items-center justify-between">
           <div className="flex items-center gap-3">
-            <button
-              onClick={() => {
-                localStorage.removeItem('extensionBannerDismissed')
-                window.dispatchEvent(new Event('showExtensionBanner'))
-              }}
-              className="hidden sm:flex items-center gap-1.5 text-sm text-blue-600 hover:text-blue-700 font-semibold transition-colors"
-            >
-              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
-              </svg>
-              Get Extension
-            </button>
+            <img src={logo} alt="MyJobsLab" className="w-8 h-8" />
+            <span className="font-extrabold text-lg tracking-tight text-gray-900">MyJobsLab</span>
+          </div>
+          <div className="flex items-center gap-4">
+            <span className="hidden sm:inline text-xs font-semibold text-gray-400 bg-gray-50 px-3 py-1.5 rounded-full border border-gray-100">
+              {session?.user?.email}
+            </span>
             <button
               onClick={handleLogout}
-              className="text-sm border border-blue-600 text-blue-600 hover:bg-blue-600 hover:text-white font-semibold px-3 py-1.5 rounded-lg transition-colors"
+              className="text-xs font-bold text-gray-500 hover:text-gray-900 px-3 py-2 transition-colors border-l border-gray-100 ml-2 pl-4"
             >
               Log out
             </button>
@@ -103,117 +137,103 @@ export default function Dashboard() {
         </div>
       </header>
 
-      {/* Extension banner */}
       <ExtensionBanner />
 
-      {/* Main content */}
-      <main className="max-w-4xl mx-auto px-4 py-6">
-
-      {/* Controls row */}
-      <div className="flex items-center justify-between mb-6 gap-3">
+      <main className="max-w-6xl mx-auto px-6 py-8">
         
-        {/* Email — far left */}
-        <span className="text-sm text-gray-400 truncate max-w-[300px]">
-          {session?.user?.email}
-        </span>
-
-        {/* Buttons — far right */}
-        <div className="flex items-center gap-3">
-          {/* Filter */}
-          <div className="relative">
-            <select
-              value={filter}
-              onChange={e => setFilter(e.target.value)}
-              className="bg-white border border-gray-300 text-gray-700 text-sm rounded-xl px-4 py-2 pr-8 appearance-none focus:outline-none focus:ring-2 focus:ring-blue-500 transition cursor-pointer"
-            >
-              {STATUSES.map(s => <option key={s} value={s}>{s === ALL ? 'All Statuses' : s}</option>)}
-            </select>
-            <div className="pointer-events-none absolute inset-y-0 right-2.5 flex items-center">
-              <svg className="w-3.5 h-3.5 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
-              </svg>
-            </div>
+        {/* Shopify-style Page Header */}
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-8">
+          <div>
+            <h1 className="text-2xl font-bold text-gray-900 tracking-tight">Applications</h1>
           </div>
-
-          {/* Add Job */}
-          <button
-            onClick={() => setShowModal(true)}
-            className="flex items-center gap-2 bg-blue-600 hover:brightness-110 text-white font-semibold text-sm px-4 py-2 rounded-xl transition-all shadow shadow-blue-500/25"
-          >
-            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
-            </svg>
-            Add Job
-          </button>
-
-          {/* Clear All */}
-          {jobs.length > 0 && (
-            <button
-              onClick={handleClearAll}
-              className="text-sm text-gray-400 hover:text-red-500 transition-colors font-medium"
+          <div className="flex items-center gap-2">
+            <button 
+              onClick={() => setShowClearModal(true)}
+              className="px-4 py-2 text-sm font-semibold text-gray-600 hover:bg-gray-100 rounded-lg transition-colors border border-transparent"
             >
-              Clear All
+              Clear all
             </button>
-          )}
+            <button
+              onClick={() => setShowAddModal(true)}
+              className="px-4 py-2 text-sm font-bold bg-blue-600 hover:brightness-110 text-white rounded-lg transition-all shadow-lg shadow-blue-500/25"
+            >
+              Add Job
+            </button>
+          </div>
         </div>
 
-      </div>
 
-        {/* Job count summary */}
-        {!loading && jobs.length > 0 && (
-          <p className="text-xs text-gray-400 mb-4">
-            {filteredJobs.length} {filteredJobs.length === 1 ? 'application' : 'applications'}
-            {filter !== ALL && ` · ${filter}`}
-          </p>
-        )}
-
-        {/* Loading */}
-        {loading && (
-          <div className="flex justify-center py-20">
-            <div className="w-7 h-7 border-4 border-blue-500 border-t-transparent rounded-full animate-spin" />
-          </div>
-        )}
-
-        {/* Empty state */}
-        {!loading && filteredJobs.length === 0 && (
-          <div className="text-center py-24">
-            <div className="inline-flex items-center justify-center w-16 h-16 bg-gray-100 rounded-2xl mb-4">
-              <svg className="w-8 h-8 text-gray-300" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2" />
-              </svg>
-            </div>
-            <h3 className="text-gray-700 font-semibold text-lg mb-1">
-              {filter !== ALL ? `No ${filter} applications` : 'No applications yet'}
-            </h3>
-            <p className="text-gray-400 text-sm">
-              {filter !== ALL
-                ? 'Try a different status filter.'
-                : 'Click "Add Job" to log your first application.'}
-            </p>
-          </div>
-        )}
-
-        {/* Job list */}
-        {!loading && filteredJobs.length > 0 && (
-          <div className="flex flex-col gap-3">
-            {filteredJobs.map(job => (
-              <JobCard
-                key={job.id}
-                job={job}
-                onStatusChange={handleStatusChange}
-                onDelete={handleDelete}
-              />
+        {/* Tabs & Filters */}
+        <div className="bg-white border border-gray-200 rounded-xl shadow-sm mb-6">
+          <div className="flex items-center gap-1 p-1 border-b border-gray-100 overflow-x-auto">
+            {STATUSES.map(s => (
+              <button
+                key={s}
+                onClick={() => setFilter(s)}
+                className={`flex-shrink-0 px-4 py-2 text-sm font-semibold rounded-lg transition-all ${
+                  filter === s 
+                    ? 'bg-gray-100 text-gray-900' 
+                    : 'text-gray-500 hover:bg-gray-50'
+                }`}
+              >
+                {s} - {statusCounts[s]}
+              </button>
             ))}
           </div>
-        )}
+
+          <div className="p-3 flex flex-col sm:flex-row gap-3">
+            <div className="flex-1 relative">
+              <input
+                type="text"
+                placeholder="Filter applications"
+                value={search}
+                onChange={e => setSearch(e.target.value)}
+                className="w-full pl-9 pr-4 py-2 text-sm border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition-all placeholder-gray-400 font-medium"
+              />
+              <svg className="w-4 h-4 text-gray-400 absolute left-3 top-2.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+              </svg>
+            </div>
+            <div className="flex items-center gap-2">
+              <button 
+                onClick={() => setAppliedSearch(search)}
+                className="px-6 py-2 text-sm font-bold bg-white border border-gray-300 rounded-lg hover:bg-gray-50 transition-all text-gray-700 shadow-sm"
+              >
+                Find
+              </button>
+            </div>
+          </div>
+
+        </div>
+
+        {/* Table View */}
+        <JobTable 
+          jobs={filteredJobs} 
+          onStatusChange={handleStatusChange} 
+          onDelete={handleDelete}
+          loading={loading}
+        />
+
+        {/* Bottom space */}
+        <div className="py-20" />
       </main>
 
-      {/* Add Job Modal */}
-      {showModal && session && (
+      {/* Modals */}
+      {showAddModal && session && (
         <AddJobModal
           userId={session.user.id}
-          onClose={() => setShowModal(false)}
+          onClose={() => setShowAddModal(false)}
           onAdded={handleAdded}
+        />
+      )}
+
+      {showClearModal && (
+        <ConfirmationModal
+          title="Delete all applications?"
+          message="This will permanently delete all your job applications. This action cannot be undone."
+          confirmText="Delete all"
+          onConfirm={handleClearAll}
+          onCancel={() => setShowClearModal(false)}
         />
       )}
     </div>

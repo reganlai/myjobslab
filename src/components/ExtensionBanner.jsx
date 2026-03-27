@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react'
+import download from '../../downloads.svg'
 
 const BANNER_KEY = 'extensionBannerDismissed'
 
@@ -25,7 +26,7 @@ export default function ExtensionBanner() {
   return (
     // Backdrop
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 px-4">
-      
+
       {/* Modal card */}
       <div className="bg-white rounded-2xl shadow-2xl max-w-md w-full p-8 relative">
 
@@ -41,20 +42,18 @@ export default function ExtensionBanner() {
         </button>
 
         {/* Icon */}
-        <div className="flex items-center justify-center w-14 h-14 bg-blue-50 rounded-2xl mx-auto mb-5">
-          <svg className="w-7 h-7 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
-          </svg>
+        <div className="flex items-center justify-center mx-auto mb-5">
+          <img src={download} alt="Download" className="w-10 h-10" />
         </div>
 
         {/* Heading */}
-        <h2 className="text-xl font-extrabold text-gray-900 text-center tracking-tight mb-2">
+        <h2 className="text-xl font-extrabold text-blue-600 text-center tracking-tight mb-2">
           Get the Chrome Extension
         </h2>
 
         {/* Subtext */}
         <p className="text-gray-500 text-sm text-center leading-relaxed mb-6">
-          Save any job listing to your dashboard in one click — directly from LinkedIn, Indeed, or Handshake. No copy-pasting, no switching tabs.
+          Save any job listing to your dashboard in one click. No copy-pasting, no switching tabs.
         </p>
 
         {/* Feature pills */}

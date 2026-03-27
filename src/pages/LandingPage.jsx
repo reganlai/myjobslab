@@ -41,7 +41,7 @@ export default function LandingPage() {
             <img src={logo} alt="MyJobsLab" className="w-8 h-8" />
             <span className="font-bold text-lg tracking-tight text-gray-900">MyJobsLab</span>
           </div>
-          
+
           <Link
             to="/login"
             className="border border-blue-600 text-blue-600 hover:bg-blue-600 hover:text-white font-semibold text-sm px-4 py-1.5 rounded-lg transition-colors duration-150"
@@ -74,14 +74,14 @@ export default function LandingPage() {
 
       {/* ── Features ──────────────────────────────────────────────────────── */}
       <section className="py-20 px-6">
-        <div className="max-w-3xl mx-auto">
+        <div className="max-w-[52rem] mx-auto">
           <div className="grid grid-cols-1 sm:grid-cols-3 gap-8">
             {features.map((f) => (
               <div key={f.title} className="bg-white rounded-lg px-7 pt-7 pb-24 border border-gray-100 shadow-xl shadow-[0_0_20px_rgba(0,0,0,0.24)] -mt-40">
                 <div className="flex items-center justify-center mb-3 mx-auto">
                   {f.icon}
                 </div>
-                <h3 className="font-bold text-gray-900 text-xl text-center mb-2">{f.title}</h3>
+                <h3 className="font-bold text-blue-600 text-xl text-center mb-2">{f.title}</h3>
                 <p className="text-gray-500 text-sm leading-relaxed">{f.desc}</p>
               </div>
             ))}
@@ -112,11 +112,10 @@ export default function LandingPage() {
             {["Applied · Software Engineer @ Google", "Interviewing · Frontend Dev @ Stripe", "Ghosted · Full Stack @ Meta"].map((job, i) => (
               <div key={i} className="bg-white rounded-xl px-5 py-4 shadow-[0_0_20px_rgba(0,0,0,0.06)] flex items-center justify-between">
                 <span className="text-sm text-gray-700 font-medium">{job.split("·")[1]}</span>
-                <span className={`text-xs font-semibold px-3 py-1 rounded-full ${
-                  i === 0 ? "bg-blue-100 text-blue-600" :
+                <span className={`text-xs font-semibold px-3 py-1 rounded-full ${i === 0 ? "bg-blue-100 text-blue-600" :
                   i === 1 ? "bg-yellow-100 text-yellow-600" :
-                  "bg-gray-100 text-gray-500"
-                }`}>
+                    "bg-gray-100 text-gray-500"
+                  }`}>
                   {job.split("·")[0].trim()}
                 </span>
               </div>
@@ -129,7 +128,7 @@ export default function LandingPage() {
       {/* ── Second CTA ────────────────────────────────────────────────────── */}
       <section className="py-24 px-6 text-center">
         <div className="max-w-5xl mx-auto">
-          <h2 className="text-3xl sm:text-4xl font-extrabold text-gray-900 tracking-tight">
+          <h2 className="text-3xl sm:text-4xl font-extrabold text-blue-600 tracking-tight">
             Ready to stay organized?
           </h2>
           <p className="mt-4 text-gray-500 text-lg max-w-md mx-auto">
